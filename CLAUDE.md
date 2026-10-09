@@ -4,7 +4,8 @@ REST API for library management: catalog, members, loans, loan requests, sanctio
 reports and a RAG-based librarian assistant. It is a portfolio project, so code quality, tests and
 documentation matter as much as features.
 
-- **Backend only**: a stateless REST API. The Angular frontend lives in a separate repository.
+- **Backend only**: a stateless REST API. The Angular frontend lives in a separate repository,
+  [`angular-libryx`](https://github.com/JuanjoOrtiz/angular-libryx), with its own `CLAUDE.md`.
 - **Layered monolith organized by module** (`controller → service → repository`). It is not hexagonal
   or Clean Architecture: do not introduce ports, adapters or use-case classes.
 - **Bootstrap in progress**: the repository started from a Spring Boot 3.5 / Java 21 skeleton. While
