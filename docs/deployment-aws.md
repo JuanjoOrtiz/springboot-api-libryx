@@ -41,6 +41,10 @@ Nothing in this repository may be run against a real AWS account unless explicit
 
 The Angular frontend is deployed from its own repository (S3 + CloudFront) and is outside this document.
 
+Metrics: locally they are shown with Prometheus and Grafana (see `observability.md`). The production
+equivalent would be Amazon Managed Service for Prometheus and Amazon Managed Grafana; they are not part
+of the Terraform code yet.
+
 ## 2. What the application requires from the infrastructure
 
 These points come from rules in `CLAUDE.md` and `.claude/rules/`. Do not break them when changing
@@ -50,7 +54,8 @@ the infrastructure.
   with more they would run twice. Scaling needs a distributed lock first.
 - **Migrate before deploying.** Every deployment runs the Flyway task and waits for it to succeed;
   only then is the service updated. The API starts with `ddl-auto=validate` and does not migrate.
-- **Health check:** the ALB calls `/actuator/health/readiness`. It depends on MariaDB and Redis, not on mail.
+- **Health check:** the ALB calls `/actuator/health/readiness` on the management port (8081), which is
+  never routed to the internet. It depends on MariaDB and Redis, not on mail.
 - **Same site for API and frontend.** The refresh token travels in a `SameSite=Strict` cookie: the API
   and the frontend must hang from the same registrable domain (`api.<domain>` and `app.<domain>`).
 - **`prod` profile** set in the task definition, with `LIBRYX_SECURITY_CORS_ALLOWED_ORIGINS` pointing

@@ -58,8 +58,8 @@ paths:
 |---|---|---|
 | `admin@libryx.local` | `ADMIN` | — |
 | `librarian@libryx.local` | `LIBRARIAN` | — |
-| `member@libryx.local` | `MEMBER` | Active loans and a queued request |
-| `member.sanctioned@libryx.local` | `MEMBER` | An active late-return sanction |
+| `user@libryx.local` | `USER` | Active loans and a queued request |
+| `user.sanctioned@libryx.local` | `USER` | An active late-return sanction |
 
 - All four are email-verified and share a development password documented in the README; the seed
   stores only its hash.

@@ -77,7 +77,7 @@ section defines the **business** ones.
 
 | Metric | Type | Tags | Measures |
 |---|---|---|---|
-| `libryx.auth.registrations` | counter | — | Member registrations |
+| `libryx.auth.registrations` | counter | — | User registrations |
 | `libryx.auth.email.verifications` | counter | `result` = `success` \| `failure` | Email verification attempts |
 | `libryx.auth.logins` | counter | `result` = `success` \| `failure` \| `locked` \| `unverified` | Login attempts |
 | `libryx.auth.password.resets` | counter | `step` = `requested` \| `completed` \| `failed` | Password recoveries |
@@ -101,12 +101,16 @@ section defines the **business** ones.
 
 Expose only what is needed: `management.endpoints.web.exposure.include=health,info,metrics,prometheus`.
 
+Actuator listens on its own **management port**, `management.server.port=8081`, separate from the API
+port (8080). That port is never published to the internet: only the load balancer health check and the
+monitoring network reach it.
+
 | Endpoint | Access | Notes |
 |---|---|---|
-| `/actuator/health` | Public | No details for anonymous callers (`show-details=when-authorized`). `liveness` and `readiness` probes on |
-| `/actuator/info` | Public | Version and build data. No environment information |
+| `/actuator/health` | No authentication | No details for anonymous callers (`show-details=when-authorized`). `liveness` and `readiness` probes on |
+| `/actuator/info` | No authentication | Version and build data. No environment information |
 | `/actuator/metrics` | `ADMIN` only | Technical and business metrics |
-| `/actuator/prometheus` | Never public: `ADMIN` or the internal monitoring network | The same metrics in Prometheus format (`micrometer-registry-prometheus`) |
+| `/actuator/prometheus` | No authentication, management port only: reached only by Prometheus | The same metrics in Prometheus format (`micrometer-registry-prometheus`) |
 | Anything else | **Not exposed** | `env`, `configprops`, `beans`, `heapdump`, `threaddump`, `loggers`, `mappings`, `shutdown` |
 
 - Access rules are declared in `SecurityConfig`, not left to defaults.
@@ -114,3 +118,31 @@ Expose only what is needed: `management.endpoints.web.exposure.include=health,in
   health: an SMTP outage delays notifications (the outbox retries), it does not take the API down.
 - Actuator endpoints are outside the general rate limit and the OpenAPI documentation.
 - Do not expose a new endpoint or add a metrics registry besides Prometheus without asking.
+
+## 5. Dashboards (local)
+
+Prometheus and Grafana run in Docker Compose for **local development only**. They are not deployed,
+and tests and CI do not need them.
+
+| Service | URL | Role |
+|---|---|---|
+| `prometheus` | `http://localhost:9090` | Scrapes `http://host.docker.internal:8081/actuator/prometheus` every 15 s and keeps the history |
+| `grafana` | `http://localhost:3000` | Shows the dashboards built on top of Prometheus |
+
+- Configuration lives in the repository, under `monitoring/`:
+  - `monitoring/prometheus/prometheus.yml`: scrape configuration.
+  - `monitoring/grafana/provisioning/`: the Prometheus datasource and the dashboard provider.
+  - `monitoring/grafana/dashboards/*.json`: the dashboards themselves.
+- Everything is **provisioned**: `docker compose up -d prometheus grafana` opens Grafana with the
+  datasource and dashboards ready, with no manual setup.
+- Dashboards are code. Change them in the Grafana UI, export the JSON and commit it to
+  `monitoring/grafana/dashboards/`. A change made only in the UI is lost.
+- The main dashboard, **Libryx — Overview**, shows: HTTP requests per second, latency and error rate;
+  JVM memory and garbage collection; database pool usage; cache hit ratio; and the business metrics in
+  section 3 (loans, returns, sanctions, notifications, logins, rate-limit rejections, job runs).
+- When you add a business metric, add a panel for it if it is useful to watch.
+- Grafana admin credentials come from `.env` (`GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`). Anonymous
+  access is off.
+- A screenshot of the overview dashboard goes in the README.
+- **Production equivalent** (documented, not built): Amazon Managed Service for Prometheus and Amazon
+  Managed Grafana. They use the same metric format, so the same dashboards apply.

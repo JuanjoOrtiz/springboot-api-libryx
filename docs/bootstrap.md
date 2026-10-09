@@ -82,6 +82,8 @@ Plugins:
 
 - [ ] `compose.yaml` with the services `mariadb` (11.8), `redis`, `mailpit` and `flyway` (one-shot). If
   the names differ, update the commands in `CLAUDE.md`.
+- [ ] `prometheus` and `grafana` in `compose.yaml`, with `monitoring/prometheus/prometheus.yml`, the Grafana
+  datasource and the **Libryx — Overview** dashboard provisioned from `monitoring/grafana/`. See `docs/observability.md`.
 - [ ] `.env.example` with every variable in `docs/configuration.md`.
 - [ ] Application `Dockerfile`: multi-stage, Java 25 JRE, non-root user, embedding model included.
 - [ ] Script to fetch and convert the `multilingual-e5-small` model to ONNX, documented in the README.

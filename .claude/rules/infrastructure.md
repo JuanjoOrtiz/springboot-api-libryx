@@ -4,6 +4,7 @@ paths:
   - ".github/**"
   - "Dockerfile"
   - "compose.yaml"
+  - "monitoring/**"
 ---
 
 # Infrastructure rules
@@ -25,7 +26,8 @@ GitHub Actions, in `.github/workflows/ci.yml`.
 
 ## Docker
 
-- `compose.yaml` defines `mariadb` (11.8), `redis`, `mailpit` and `flyway` (one-shot). If a service
+- `compose.yaml` defines `mariadb` (11.8), `redis`, `mailpit` and `flyway` (one-shot), plus `prometheus`
+  and `grafana` for local dashboards (configuration in `monitoring/`, see `docs/observability.md`). If a service
   name changes, update the commands in `CLAUDE.md`.
 - The application `Dockerfile` is multi-stage, runs on a Java 25 JRE as a non-root user, and includes
   the embedding model files.
@@ -43,6 +45,6 @@ GitHub Actions, in `.github/workflows/ci.yml`.
   - **One API task**, no autoscaling: scheduled jobs assume a single instance.
   - **Migrate before deploying**: Flyway runs as a one-off task and the API only validates the schema.
   - Migrations are compatible with the previous API version; an incompatible change takes two deployments.
-  - The load balancer health check is `/actuator/health/readiness`.
+  - The load balancer health check is `/actuator/health/readiness` on the management port (8081).
   - API and frontend share the same registrable domain, because of the `SameSite=Strict` refresh cookie.
 - A change to environment variables, health, logs or startup is mirrored in `infra/` and its document.

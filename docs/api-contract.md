@@ -81,7 +81,7 @@ Response — `PageResponse<T>`, a record in `shared`:
 
 - An invalid value (unknown enum, malformed date, `from` after `to`) answers 400.
 - `q` is between 2 and 100 characters long.
-- A `MEMBER` never filters by another member: the server imposes their own id, whatever the request says.
+- A `USER` never filters by someone else: the server imposes their own id, whatever the request says.
 
 ## 6. Errors
 

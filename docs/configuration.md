@@ -56,6 +56,7 @@ src/test/resources/
 |---|---|---|
 | `libryx.time-zone` | `Europe/Madrid` | Library time zone for business dates and daily jobs |
 | `libryx.mail.from` | — | Sender address for emails |
+| `management.server.port` | `8081` | Actuator port, separate from the API (Spring property; see `observability.md`) |
 
 ### Business rules
 
@@ -173,6 +174,8 @@ Standard Spring names (relaxed binding), with no invented aliases.
 | `LIBRYX_SECURITY_JWT_SECRET` | yes | **yes** | JWT signing key |
 | `LIBRYX_SECURITY_CORS_ALLOWED_ORIGINS` | yes | no | Frontend origin |
 | `LIBRYX_MAIL_FROM` | yes | no | Sender address for emails |
+| `GRAFANA_ADMIN_USER` | only in `local` | no | Grafana admin user (read by Compose, not by the application) |
+| `GRAFANA_ADMIN_PASSWORD` | only in `local` | **yes** | Grafana admin password (read by Compose, not by the application) |
 | `SPRING_AI_ANTHROPIC_API_KEY` | only in `prod` | **yes** | Claude API key for the assistant's chat |
 | `SPRING_AI_ANTHROPIC_CHAT_MODEL` | only in `prod` | no | Claude model used by the assistant |
 | `SPRING_AI_OLLAMA_BASE_URL` | no | no | Ollama URL locally (`http://localhost:11434`) |

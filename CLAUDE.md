@@ -9,6 +9,7 @@ documentation matter as much as features.
   or Clean Architecture: do not introduce ports, adapters or use-case classes.
 - **Bootstrap in progress**: the repository started from a Spring Boot 3.5 / Java 21 skeleton. While
   `docs/bootstrap.md` has unchecked items, read it before any task; the changes it lists are pre-approved.
+  Until it is complete, the commands below do not work yet (no Maven wrapper, no Compose file).
 - If an instruction here conflicts with what you find in the code, ask before "fixing" either side.
 
 ## Stack
@@ -20,12 +21,10 @@ documentation matter as much as features.
 | Persistence | Spring Data JPA on MariaDB 11.8, Flyway migrations |
 | Redis | Catalog cache (Spring Cache), refresh tokens, JWT denylist, rate limiting |
 | Security | Spring Security 7, JWT (JJWT), role checks with `@PreAuthorize` |
-| Mapping / boilerplate | MapStruct, Lombok |
-| API docs | SpringDoc OpenAPI 3.x |
-| Mail | Spring Mail; Mailpit locally |
-| Exports | iText (PDF), Apache POI (XLSX) |
+| Mapping / API docs | MapStruct, Lombok; SpringDoc OpenAPI 3.x |
+| Mail / exports | Spring Mail (Mailpit locally); iText (PDF), Apache POI (XLSX) |
 | AI | Spring AI 2.0.x: Claude in `prod`, Ollama in `local`, in-app ONNX embeddings, MariaDB vector store |
-| Observability | Micrometer, Actuator, Prometheus registry |
+| Observability | Micrometer and Actuator; Prometheus and Grafana for local dashboards |
 | Tests | JUnit Jupiter, Mockito, AssertJ, Testcontainers |
 | Build / CI | Maven wrapper (`./mvnw`), GitHub Actions |
 | Infrastructure | Docker Compose; AWS with Terraform, as code only |
@@ -36,6 +35,7 @@ documentation matter as much as features.
 
 ```bash
 docker compose up -d mariadb redis mailpit      # local infrastructure
+docker compose up -d prometheus grafana         # metrics dashboards (optional)
 docker compose run --rm flyway                  # apply migrations (one-shot container)
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ./mvnw test                                     # unit tests
@@ -43,14 +43,15 @@ docker compose run --rm flyway                  # apply migrations (one-shot con
 ./mvnw clean verify                             # unit + integration tests (needs Docker) + coverage
 ```
 
-Local URLs: API `http://localhost:8080/api`, Swagger UI `/swagger-ui.html`, health `/actuator/health`,
-Mailpit `http://localhost:8025`. The assistant uses the Ollama installed on the machine (port 11434).
+Local URLs: API `http://localhost:8080/api`, Swagger UI `/swagger-ui.html`, Actuator on port `8081`,
+Mailpit `http://localhost:8025`, Grafana `http://localhost:3000`, Prometheus `http://localhost:9090`.
+The assistant uses the Ollama installed on the machine (port 11434).
 
 ## Where the rules live
 
-This file holds what applies everywhere. Area rules in `.claude/rules/` load automatically when you
-touch matching files. Reference documents in `docs/` are **not** loaded: read the relevant one before
-working in that area, and update it in the same change when your work alters it.
+This file holds what applies everywhere. Rules in `.claude/rules/` load automatically when you touch
+matching files. Documents in `docs/` are **not** loaded: read the relevant one first, and update it in
+the same change when your work alters it.
 
 | Working on | Rule file (auto-loaded) | Reference to read |
 |---|---|---|
@@ -99,8 +100,9 @@ loan/
 
 Build one module at a time, in this order. Do not start work that belongs to a later module.
 
-0. **Bootstrap** (`docs/bootstrap.md`) · 1. **Auth** · 2. **Members** · 3. **Catalog** · 4. **Loans** ·
-5. **Sanctions** · 6. **Loan requests** · 7. **Dashboard / reports** · 8. **Infrastructure, testing, docs**
+0. **Bootstrap** (`docs/bootstrap.md`) · 1. **Auth** · 2. **Users** (package `user`) · 3. **Catalog** ·
+4. **Loans** · 5. **Sanctions** · 6. **Loan requests** · 7. **Dashboard / reports** (scope not defined
+yet: ask before building it) · 8. **Infrastructure, testing, docs**
 
 Notifications are cross-cutting. The RAG assistant is added last, as its own module.
 
@@ -127,9 +129,7 @@ Notifications are cross-cutting. The RAG assistant is added last, as its own mod
   DTOs `BookCreateRequest`, `BookUpdateRequest`, `BookResponse`, `BookSummaryResponse`; exceptions
   `BookNotFoundException`, `LoanLimitExceededException`.
 
-### Spring Boot 4, not 3
-
-Do not copy Boot 3 idioms, imports or starters.
+### Spring Boot 4, not 3: do not copy Boot 3 idioms, imports or starters
 
 - Starters: `spring-boot-starter-webmvc` (was `-web`), `-aspectj` (was `-aop`), and Flyway needs
   `spring-boot-starter-flyway`. Each technology has its own test starter (`-webmvc-test`, `-data-jpa-test`,
