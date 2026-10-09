@@ -21,7 +21,7 @@ Auth module.
 
 ## Step 2 — Maven wrapper · `chore/maven-wrapper`
 
-- [ ] **The Maven wrapper does not work.** `mvnw` and `mvnw.cmd` exist, but
+- [x] **The Maven wrapper does not work.** `mvnw` and `mvnw.cmd` exist, but
   `.mvn/wrapper/maven-wrapper.properties` is missing, so `./mvnw` fails with
   `cannot open ./.mvn/wrapper/maven-wrapper.properties`. Add it and version the `.mvn/` folder. Every
   command in `CLAUDE.md` and CI depend on it.

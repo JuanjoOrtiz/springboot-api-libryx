@@ -10,7 +10,7 @@ documentation matter as much as features.
   or Clean Architecture: do not introduce ports, adapters or use-case classes.
 - **Bootstrap in progress**: the repository started from a Spring Boot 3.5 / Java 21 skeleton. While
   `docs/bootstrap.md` has unchecked items, read it before any task; the changes it lists are pre-approved.
-  Until it is complete, the commands below do not work yet (no Maven wrapper, no Compose file).
+  Until it is complete, some commands below do not work yet (no Compose file, no database configuration).
 - If an instruction here conflicts with what you find in the code, ask before "fixing" either side.
 
 ## Stack
