@@ -178,7 +178,7 @@ Criteria for deciding, not an excuse to add abstractions. When in doubt, the sim
 - [ ] `./mvnw clean verify` is green
 - [ ] Flyway migration included when the model changed
 - [ ] DTOs are validated records mapped with MapStruct; no entity exposed
-- [ ] `@PreAuthorize` on every new operation, with tests for an allowed and a denied role
+- [ ] `@PreAuthorize` on every new endpoint, with tests for an allowed and a denied role
 - [ ] Business rules covered by tests, including boundary cases
 - [ ] New endpoints documented in OpenAPI
 - [ ] New properties, error codes and metrics added to their document in `docs/`
@@ -190,7 +190,7 @@ Criteria for deciding, not an excuse to add abstractions. When in doubt, the sim
 - Edit an applied Flyway migration, or set `ddl-auto` to anything but `validate`.
 - Return a JPA entity from a controller, or inject a repository into one.
 - Put business logic in entities, controllers or mappers.
-- Expose personal data outside the `ADMIN` endpoints, or write it to logs, exports without audit, or the assistant.
+- Expose personal data outside the `ADMIN` endpoints and the user's own profile, or write it to logs, exports without audit, or the assistant.
 - Hardcode business limits, secrets, URLs or CORS origins.
 - Call a real AI provider from a test, or run `terraform apply` / `destroy`.
 - Lower the coverage threshold, skip CI, disable a test or change a business rule to make a build pass.

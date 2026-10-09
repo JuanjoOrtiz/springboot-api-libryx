@@ -42,7 +42,8 @@ src/test/resources/
 ## 3. Typed properties
 
 - One `record` with `@ConfigurationProperties` per group (`LoanProperties`, `JwtProperties`,
-  `RateLimitProperties`, `CacheProperties`, `JobProperties`), annotated with `@Validated`.
+  `RateLimitProperties`, `CacheProperties`, `JobProperties`, `NotificationProperties`,
+  `ExportProperties`, `AssistantProperties`), annotated with `@Validated`.
 - Bean Validation constraints on the fields (`@Positive`, `@NotBlank`, `@NotNull`): an invalid
   configuration **prevents startup**.
 - Services inject the record; never `@Value` or `Environment`.
@@ -56,18 +57,36 @@ src/test/resources/
 |---|---|---|
 | `libryx.time-zone` | `Europe/Madrid` | Library time zone for business dates and daily jobs |
 | `libryx.mail.from` | — | Sender address for emails |
-| `management.server.port` | `8081` | Actuator port, separate from the API (Spring property; see `observability.md`) |
+
+### Spring properties set by the project
+
+| Property | Value | Description |
+|---|---|---|
+| `management.server.port` | `8081` | Actuator port, separate from the API (see `observability.md`) |
+| `spring.flyway.enabled` | `false` (`true` in `test`) | The application migrates only in tests; elsewhere the one-shot Flyway container does |
+
+### Catalog
+
+| Property | Default | Description |
+|---|---|---|
+| `libryx.catalog.cover-url-template` | `https://covers.openlibrary.org/b/isbn/{isbn}-M.jpg` | Cover URL used when a work with an ISBN has none |
+
+### Notifications
+
+| Property | Default | Description |
+|---|---|---|
+| `libryx.notifications.max-attempts` | `5` | Send attempts before an email notice becomes `FAILED` |
 
 ### Business rules
 
 | Property | Default | Description |
 |---|---|---|
 | `libryx.loan.duration-days` | `14` | Loan duration |
-| `libryx.loan.max-active-per-member` | `3` | Simultaneous active loans per member |
+| `libryx.loan.max-active-per-user` | `3` | Simultaneous active loans per user |
 | `libryx.loan.max-renewals` | `2` | Renewals per loan |
 | `libryx.loan.renewal-days` | `14` | Days added by each renewal |
 | `libryx.loan.due-soon-days` | `2` | Lead time of the due-soon notice |
-| `libryx.loan-request.max-open-per-member` | `3` | Simultaneous open requests per member |
+| `libryx.loan-request.max-open-per-user` | `3` | Simultaneous open requests per user |
 | `libryx.loan-request.pickup-window` | `48h` | Time to pick up a ready request |
 | `libryx.sanction.late-return-days` | `21` | Duration of the late-return sanction |
 
@@ -78,7 +97,7 @@ src/test/resources/
 | `libryx.security.jwt.secret` | — (secret) | HS256 key, at least 256 bits |
 | `libryx.security.jwt.access-token-ttl` | `15m` | Access token lifetime |
 | `libryx.security.jwt.refresh-token-ttl` | `7d` | Refresh token lifetime |
-| `libryx.security.cors.allowed-origins` | — | Allowed origins (frontend) |
+| `libryx.security.cors.allowed-origins` | — | Allowed origins (frontend; `http://localhost:4200` in `local`) |
 | `libryx.security.password.min-length` | `8` | Minimum password length |
 | `libryx.security.password.max-length` | `64` | Maximum password length |
 | `libryx.security.lockout.max-failed-attempts` | `5` | Consecutive failed logins that lock the account |
@@ -88,6 +107,9 @@ src/test/resources/
 | `libryx.security.password-reset.code-ttl` | `15m` | Validity of the recovery code |
 | `libryx.security.password-reset.max-attempts` | `5` | Check attempts per recovery code |
 | `libryx.security.code-resend-cooldown` | `60s` | Minimum wait between two codes sent to the same email |
+
+The `ACCOUNT_SETUP` code (first password of an account created by an `ADMIN`) uses the
+`password-reset.*` settings; it has no properties of its own.
 
 The password composition rule (one upper-case letter, one lower-case letter and one digit) is fixed in
 code as a validation constraint, not a property.
@@ -121,6 +143,16 @@ Each rule has `limit` and `window` under `libryx.rate-limit.rules.<rule>`.
 | `libryx.cache.catalog-reference-ttl` | `1h` | Categories, authors and publishers |
 | `libryx.cache.catalog-search-ttl` | `2m` | Search results and listings |
 
+### Assistant
+
+| Property | Default | Description |
+|---|---|---|
+| `libryx.assistant.max-question-length` | `500` | Maximum characters in a question |
+| `libryx.assistant.top-k` | `5` | Chunks retrieved per question |
+| `libryx.assistant.similarity-threshold` | `0.7` | Minimum similarity for a chunk to be used |
+| `libryx.assistant.chunk-size` | `400` | Target tokens per chunk (the model reads 512 at most) |
+| `libryx.assistant.chunk-overlap` | `50` | Tokens shared by consecutive chunks |
+
 ### Assistant (Spring AI properties)
 
 These are not `libryx.*`, but they are always set explicitly in each profile.
@@ -133,6 +165,9 @@ These are not `libryx.*`, but they are always set explicitly in each profile.
 | `spring.ai.ollama.chat.model` | chosen local model | — | — |
 | `spring.ai.anthropic.api-key` | — | — | secret |
 | `spring.ai.anthropic.chat.model` | — | — | chosen Claude model |
+| `spring.ai.anthropic.chat.max-tokens` | — | — | maximum output tokens |
+| `spring.ai.anthropic.timeout` | — | — | wait for the provider before answering 503 (`30s`) |
+| `spring.ai.ollama.chat.num-predict` | maximum output tokens | — | — |
 | `spring.ai.embedding.transformer.onnx.model-uri` | path to the ONNX model | — | path inside the image |
 | `spring.ai.embedding.transformer.tokenizer.uri` | path to the tokenizer | — | path inside the image |
 | `spring.ai.vectorstore.mariadb.initialize-schema` | `false` | `false` | `false` |
@@ -140,11 +175,18 @@ These are not `libryx.*`, but they are always set explicitly in each profile.
 
 The embedding model is the same in `local` and `prod` (`multilingual-e5-small`, 384 dimensions).
 
+### Exports
+
+| Property | Default | Description |
+|---|---|---|
+| `libryx.export.max-rows` | `10000` | Maximum rows in one export |
+
 ### Scheduled jobs
 
 | Property | Default | Description |
 |---|---|---|
 | `libryx.jobs.enabled` | `true` (`false` in `test`) | Turns all jobs on or off |
+| `libryx.jobs.batch-size` | `100` | Records processed per transaction in a job |
 | `libryx.jobs.outbox.fixed-delay` | `1m` | Send pending notifications |
 | `libryx.jobs.request-expiry.fixed-delay` | `15m` | Expire requests that were not picked up |
 | `libryx.jobs.overdue.cron` | `0 5 0 * * *` | Mark overdue loans |

@@ -19,14 +19,28 @@ paths:
 - Method names `shouldResult_whenCondition`. Structure given / when / then.
 - Control dates with a fixed `Clock`, never with sleeps or the real time.
 - Every business rule has a test for the valid case, the boundary and the rejection.
-- Every protected endpoint has a test for an allowed role and at least one denied role.
+- Every protected endpoint has tests for an allowed role, a denied role (403), an anonymous request
+  (401) and, when it has an owner, another user's resource (404).
+- Web tests run with the real security configuration and mock only the token service. Never disable
+  the filters (`addFilters = false`) to make a test pass.
 - Every rate limit has a test that checks the 429.
 - Scheduled jobs are disabled (`libryx.jobs.enabled=false`) and tested through their service.
 - AI is replaced by doubles of `ChatModel` and `EmbeddingModel`: no provider call, no model load.
-- Each test builds its own data with builders or fixtures. Tests never use the local seed data.
+- Each test builds its own data. Builders live in one class per module, in
+  `src/test/java/com/libryx/<module>/testdata/` (`BookTestData.aBook()`). Tests never use the local seed data.
 - Coverage with JaCoCo in `./mvnw verify`: **at least 80 % of lines in `service` packages**. Below
   that the build fails. Do not add exclusions or lower the threshold to reach it.
 - Never disable, delete or weaken a test to make the build pass: fix the cause.
+
+## Test database
+
+- The schema is created by Flyway when the test context starts, with the same migrations as
+  production. No seed data, no `ddl-auto` other than `validate`.
+- Containers start **once per test run** and are shared: static containers in one shared
+  configuration, connected with `@ServiceConnection`. Never one container per test class.
+- `@DataJpaTest` must use the container, never an embedded database: if Spring tries to replace the
+  datasource, stop it with `@AutoConfigureTestDatabase(replace = NONE)`.
+- Tests do not depend on each other's data: each one cleans up or runs in a transaction that rolls back.
 
 ## Spring Boot 4
 

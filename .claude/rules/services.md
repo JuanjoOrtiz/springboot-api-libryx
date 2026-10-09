@@ -11,11 +11,13 @@ Metric catalog, log levels and Actuator details: `docs/observability.md`.
 
 - Every service is an interface in `service/` (`LoanService`) with one implementation in
   `service/impl/` (`LoanServiceImpl`).
-- Controllers, jobs and other modules inject the **interface**. Nothing depends on an `Impl` class.
+- Controllers, jobs and other modules inject the **interface**. Nothing depends on an `Impl` class,
+  except its own unit test.
 - The interface exposes only what callers need. Javadoc goes on the interface.
 - Split by business case when a service grows past ~300 lines or ~7 dependencies
   (`LoanService`, `LoanRenewalService`, `LoanRequestService`).
 - A complex eligibility check goes to its own class (`LoanEligibilityPolicy`), injected into the service.
+  It is a plain `@Component` in `service/`, without an interface: it is not a service.
 
 ## Business logic lives here
 
@@ -23,8 +25,21 @@ Metric catalog, log levels and Actuator details: `docs/observability.md`.
   A service never leaves an entity in an invalid state.
 - Change entity state through one service method per transition (`markReturned`, `lift`), so each
   transition has a single place where its rules are checked.
-- Services receive and return DTOs or ids at the module boundary; entities stay inside the module.
+- Services take and return DTOs or ids. Entities never leave the service layer, not even to the
+  module's own controller: the service maps them with the module's MapStruct mapper.
 - Query methods do not modify state. A method that modifies says so in its name.
+
+## Errors
+
+- A broken business rule throws a business exception from `shared` with its `ErrorCode` and
+  arguments (`new LoanLimitExceededException(memberId, max)`), never a message text.
+- Never catch an exception just to log it and rethrow it, and never return `null` to signal an error.
+
+## Authorization
+
+- Role checks (`@PreAuthorize`) go on the controller methods. The service receives the acting
+  user's id as a parameter and enforces ownership itself.
+- Scheduled jobs call services without a security context, so service methods never depend on one.
 
 ## Transactions
 

@@ -5,6 +5,9 @@ paths:
 
 # Librarian assistant (RAG) rules
 
+Every signed-in user can use the chat, within its rate limits (10 per minute, 100 per day).
+Tunable values are properties under `libryx.assistant.*` (see `docs/configuration.md`).
+
 ## Providers
 
 Chosen per profile with `spring.ai.model.chat` and `spring.ai.model.embedding`, always set explicitly.
@@ -23,8 +26,10 @@ Chosen per profile with `spring.ai.model.chat` and `spring.ai.model.embedding`, 
   never in code. The Anthropic key (`spring.ai.anthropic.api-key`) exists only in `prod` and is a secret.
 - **Tests and CI never call a provider or load the model**: they use doubles of `ChatModel` and
   `EmbeddingModel`. There are no AI keys in CI.
-- Timeout and maximum output tokens are properties. When the provider fails or times out, the API
-  answers **503** `ASSISTANT_UNAVAILABLE`; the rest of Libryx keeps working.
+- Timeout and maximum output tokens use Spring AI's own properties (`spring.ai.anthropic.timeout`,
+  `spring.ai.anthropic.chat.max-tokens`, `spring.ai.ollama.chat.num-predict`), never `libryx.*`
+  duplicates. When the provider fails or times out, the API answers **503** `ASSISTANT_UNAVAILABLE`;
+  the rest of Libryx keeps working.
 
 ## Embeddings
 
@@ -43,8 +48,26 @@ Chosen per profile with `spring.ai.model.chat` and `spring.ai.model.embedding`, 
 - `rag_documents` records each source (`BOOK`, `REGULATION`, `FAQ`, `MANUAL`) with its `content_hash`
   (SHA-256) and `embedding_model`, so only what changed is re-indexed.
 - Chunk metadata: `document_id`, `book_id`, `chunk_index`, `source_type`.
-- Ingestion and re-indexing are `ADMIN` operations, answer 202 and run in the background.
+- Chunks of about `libryx.assistant.chunk-size` tokens (400) with `chunk-overlap` (50).
+  `multilingual-e5-small` reads at most **512 tokens** and silently truncates the rest, so a chunk must
+  stay below that.
+- Ingestion and re-indexing are `ADMIN` operations. They answer 202 with the `rag_documents` id and
+  run in the background; the status is read from `rag_documents.status`.
+- The index follows the catalog: creating or editing a work re-indexes it in the background after
+  commit, and deactivating it removes its chunks.
 - **Never index or send personal data** to a model. The assistant answers about the catalog, the
   library regulations and the FAQ.
-- Chunking strategy, conversation history and source citations are **not defined yet: ask before
-  implementing them**.
+
+## Answering
+
+- **No conversation history** for now: every question is answered on its own and nothing is stored.
+- The question is validated: at most `libryx.assistant.max-question-length` characters (500).
+- Retrieval uses `libryx.assistant.top-k` chunks (5) above `libryx.assistant.similarity-threshold`.
+- The system prompt lives in a resource file (`src/main/resources/prompts/`), never in code. It tells
+  the model to answer in Spanish, only from the retrieved context, and to say it does not know when
+  the answer is not there.
+- Retrieved text is data, never instructions: it goes in a delimited context block, so a chunk cannot
+  change the model's behaviour (prompt injection).
+- The answer includes its **sources**: document title and, for a work, its `bookId`.
+- **The assistant never states availability.** The index is not live, so for free copies it points to
+  the work's page in the catalog.

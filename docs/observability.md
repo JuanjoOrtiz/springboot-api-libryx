@@ -8,7 +8,7 @@ logs or metrics, or touching the Actuator configuration.
 SLF4J through `@Slf4j`. Messages in English, on one line, with `{}` placeholders.
 
 ```java
-log.info("Loan created loanId={} copyId={} memberId={}", loan.getId(), copyId, memberId);
+log.info("Loan created loanId={} copyId={} userId={}", loan.getId(), copyId, userId);
 ```
 
 ### Levels
@@ -84,14 +84,16 @@ section defines the **business** ones.
 | `libryx.loans.created` | counter | — | Loans handed over |
 | `libryx.loans.returned` | counter | `late` = `true` \| `false` | Returns |
 | `libryx.loans.renewed` | counter | — | Renewals |
-| `libryx.loans.overdue` | gauge | — | Loans overdue right now |
+| `libryx.loans.overdue` | gauge | — | Loans overdue right now. Updated by the overdue job and read from memory, never a query per scrape |
 | `libryx.loan.requests.created` | counter | — | Requests created |
 | `libryx.loan.requests.closed` | counter | `status` = `FULFILLED` \| `CANCELLED` \| `REJECTED` \| `EXPIRED` | Requests closed |
 | `libryx.sanctions.created` | counter | `reason` | Sanctions applied |
+| `libryx.sanctions.extended` | counter | — | Active sanctions extended by another late return |
 | `libryx.sanctions.lifted` | counter | — | Sanctions lifted by hand |
-| `libryx.notifications.sent` | counter | `type`, `channel`, `result` = `sent` \| `failed` | Notification sends |
+| `libryx.notifications.sent` | counter | `type`, `channel`, `result` = `sent` \| `failed` \| `cancelled` | Notification sends |
 | `libryx.notifications.pending` | gauge | — | Size of the outbox queue |
 | `libryx.exports.generated` | counter | `type`, `format` | Reports exported |
+| `libryx.exports.rejected` | counter | `type` | Exports rejected with `EXPORT_TOO_LARGE` |
 | `libryx.ratelimit.rejected` | counter | `rule` | Requests rejected with 429 |
 | `libryx.assistant.requests` | timer | `result` = `success` \| `error` | Assistant queries and their duration |
 | `libryx.rag.documents.ingested` | counter | `source`, `result` | Documents indexed |
@@ -99,7 +101,7 @@ section defines the **business** ones.
 
 ## 4. Actuator
 
-Expose only what is needed: `management.endpoints.web.exposure.include=health,info,metrics,prometheus`.
+Expose only what is needed: `management.endpoints.web.exposure.include=health,info,prometheus`.
 
 Actuator listens on its own **management port**, `management.server.port=8081`, separate from the API
 port (8080). That port is never published to the internet: only the load balancer health check and the
@@ -109,12 +111,12 @@ monitoring network reach it.
 |---|---|---|
 | `/actuator/health` | No authentication | No details for anonymous callers (`show-details=when-authorized`). `liveness` and `readiness` probes on |
 | `/actuator/info` | No authentication | Version and build data. No environment information |
-| `/actuator/metrics` | `ADMIN` only | Technical and business metrics |
 | `/actuator/prometheus` | No authentication, management port only: reached only by Prometheus | The same metrics in Prometheus format (`micrometer-registry-prometheus`) |
-| Anything else | **Not exposed** | `env`, `configprops`, `beans`, `heapdump`, `threaddump`, `loggers`, `mappings`, `shutdown` |
+| Anything else | **Not exposed** | `metrics` (Prometheus already serves the same data), `env`, `configprops`, `beans`, `heapdump`, `threaddump`, `loggers`, `mappings`, `shutdown` |
 
 - Access rules are declared in `SecurityConfig`, not left to defaults.
-- `readiness` depends on MariaDB and Redis. The mail server is **not** part of the application's
+- `readiness` depends on MariaDB and Redis. `liveness` never does: a short Redis outage must not make
+  the platform restart the container. The mail server is **not** part of the application's
   health: an SMTP outage delays notifications (the outbox retries), it does not take the API down.
 - Actuator endpoints are outside the general rate limit and the OpenAPI documentation.
 - Do not expose a new endpoint or add a metrics registry besides Prometheus without asking.
@@ -126,7 +128,7 @@ and tests and CI do not need them.
 
 | Service | URL | Role |
 |---|---|---|
-| `prometheus` | `http://localhost:9090` | Scrapes `http://host.docker.internal:8081/actuator/prometheus` every 15 s and keeps the history |
+| `prometheus` | `http://localhost:9090` | Scrapes `http://host.docker.internal:8081/actuator/prometheus` every 15 s and keeps the history. On Linux, Compose adds `extra_hosts: "host.docker.internal:host-gateway"` |
 | `grafana` | `http://localhost:3000` | Shows the dashboards built on top of Prometheus |
 
 - Configuration lives in the repository, under `monitoring/`:

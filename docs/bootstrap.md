@@ -6,6 +6,8 @@ Auth module.
 
 - Everything on this list is **pre-approved**: no need to ask or write an ADR for each item. Anything
   not listed follows the normal rules in `CLAUDE.md`.
+- Each section is **one step and one branch**, created from `develop` and merged back into it. Do only
+  that section's items in its branch, and do the sections in order.
 - Tick each item when it is done. When all are ticked, delete this document and its references in `CLAUDE.md`.
 
 ## Already in place
@@ -14,20 +16,19 @@ Auth module.
 |---|---|
 | Root package and main class | `com.libryx`, `LibryxApplication` |
 | Maven coordinates | `com.libryx:libryx` |
-| Build | Maven, with `mvnw` and `mvnw.cmd` |
 | Branches | `main` (stable) and `develop` (integration) |
 | Guide and documentation | `CLAUDE.md`, `.claude/rules/`, `docs/` |
 
-## 1. Blockers
+## Step 2 — Maven wrapper · `chore/maven-wrapper`
 
-- [ ] **The Maven wrapper does not work.** `.mvn/wrapper/maven-wrapper.properties` is missing, so
-  `./mvnw` fails with `cannot open ./.mvn/wrapper/maven-wrapper.properties`. Add it and version the
-  `.mvn/` folder. Every command in `CLAUDE.md` and CI depend on it.
-- [ ] **The base test cannot pass.** `LibryxApplicationTests` loads the full context
-  (`@SpringBootTest`) and the project has no database configured. Turn it into
-  `LibryxApplicationIT` with Testcontainers (MariaDB and Redis) once section 4 is done.
+- [ ] **The Maven wrapper does not work.** `mvnw` and `mvnw.cmd` exist, but
+  `.mvn/wrapper/maven-wrapper.properties` is missing, so `./mvnw` fails with
+  `cannot open ./.mvn/wrapper/maven-wrapper.properties`. Add it and version the `.mvn/` folder. Every
+  command in `CLAUDE.md` and CI depend on it.
 
-## 2. Platform versions
+## Step 3 — Platform, dependencies and plugins · `chore/boot4-java25`
+
+Platform versions:
 
 - [ ] `spring-boot-starter-parent` `3.5.11` → **4.x**.
 - [ ] `java.version` `21` → **25**. Drop `<source>` and `<target>` from `maven-compiler-plugin`: the
@@ -38,8 +39,6 @@ Auth module.
 - [ ] Check that `jjwt` (`0.12.5`) and `jjwt-jackson` work with Boot 4. JJWT uses Jackson 2, which
   coexists with Jackson 3; if it gives trouble, move to the latest 0.12.x or 0.13.x.
 - [ ] Remove the `commons-lang3.version` pin (`3.18.0`) so Boot 4 manages the version.
-
-## 3. Dependencies
 
 Renamed in Boot 4:
 
@@ -70,39 +69,62 @@ Plugins:
 - [ ] `maven-failsafe-plugin`. Without it, `*IT` tests **do not run** in `./mvnw verify`.
 - [ ] `jacoco-maven-plugin`, with the rule of 80 % line coverage in `service` packages bound to `verify`.
 
-## 4. Configuration
+## Step 4 — Configuration and profiles · `chore/config-profiles`
 
 - [ ] Replace `application.properties` (today only `spring.application.name=libryx`) with
   `application.yml`, `application-local.yml` and `application-prod.yml`, plus `application-test.yml` in
   `src/test/resources`. See `docs/configuration.md`.
-- [ ] `@ConfigurationProperties` records for the `libryx.*` groups.
+- [ ] `@ConfigurationProperties` records for the `libryx.*` groups, in `config/`, registered with
+  `@ConfigurationPropertiesScan` on the main class.
+- [ ] A `Clock` bean in UTC: every date rule depends on it.
 - [ ] `messages.properties` and the `MessageSource` wiring for validation and error messages.
 
-## 5. Local infrastructure
+## Step 5 — Local infrastructure · `chore/docker-compose`
 
-- [ ] `compose.yaml` with the services `mariadb` (11.8), `redis`, `mailpit` and `flyway` (one-shot). If
-  the names differ, update the commands in `CLAUDE.md`.
+- [ ] `compose.yaml` with the services `mariadb` (11.8), `redis`, `mailpit` and `flyway` (one-shot),
+  as described in `.claude/rules/infrastructure.md`. If the names differ, update the commands in `CLAUDE.md`.
 - [ ] `prometheus` and `grafana` in `compose.yaml`, with `monitoring/prometheus/prometheus.yml`, the Grafana
   datasource and the **Libryx — Overview** dashboard provisioned from `monitoring/grafana/`. See `docs/observability.md`.
 - [ ] `.env.example` with every variable in `docs/configuration.md`.
-- [ ] Application `Dockerfile`: multi-stage, Java 25 JRE, non-root user, embedding model included.
-- [ ] Script to fetch and convert the `multilingual-e5-small` model to ONNX, documented in the README.
-
-## 6. Database
-
-- [ ] Add `V1__libryx_schema.sql` to `src/main/resources/db/migration` and run it against a real
-  MariaDB 11.8 through Flyway. It was written and reviewed by hand and has **never been executed**.
-- [ ] Seed data for the `local` profile in `src/main/resources/db/seed/local`.
-
-## 7. Repository
-
 - [ ] `.gitignore`: add `.env`, `.terraform/`, `*.tfstate*`, `*.tfvars` (except the example) and the
   ONNX model folder.
+- [ ] Application `Dockerfile`: multi-stage, Java 25 JRE, non-root user, embedding model included,
+  layered jar, `-XX:MaxRAMPercentage=75`, plus `.dockerignore`.
+- [ ] Script to fetch and convert the `multilingual-e5-small` model to ONNX, documented in the README.
+
+## Step 6 — Schema and seed data · `chore/flyway-v1`
+
+- [ ] Add `V1__libryx_schema.sql` to `src/main/resources/db/migration`. Its source is the reference
+  schema kept in the claude.ai Project (`claude/V1__libryx_schema.sql`), which already includes the
+  decisions of the guide review: `open_flag` on `sanctions`, the `ACCOUNT_SETUP` notice and the `USERS`
+  report. Do not rewrite it from memory; ask for the file if it is not available.
+- [ ] Run it against a real MariaDB 11.8 through Flyway. It was written and reviewed by hand and has
+  **never been executed**.
+- [ ] Seed data for the `local` profile in `src/main/resources/db/seed/local`.
+
+## Step 7 — Base integration test · `chore/testcontainers-base`
+
+- [ ] **The base test cannot pass today.** `LibryxApplicationTests` loads the full context
+  (`@SpringBootTest`) and the project has no database. Turn it into `LibryxApplicationIT` with the
+  shared Testcontainers setup (MariaDB and Redis) described in `.claude/rules/testing.md`.
+
+## Step 8 — Continuous integration · `chore/ci`
+
+- [ ] `.github/workflows/ci.yml` as described in `.claude/rules/infrastructure.md`.
+- [ ] `.github/dependabot.yml` for Maven, GitHub Actions and Docker, weekly.
 - [ ] Delete `HELP.md`, the Spring Initializr help text.
 - [ ] Rewrite `README.md`, which today is a single line.
-- [ ] `.github/workflows/ci.yml` as described in `.claude/rules/infrastructure.md`.
 
-## 8. Final check
+## Step 9 — Shared foundations · `feature/shared-foundations`
+
+The common base every module needs, so it does not get mixed into the first Auth pull request:
+
+- [ ] The `X-Request-Id` filter and MDC handling (`docs/observability.md`).
+- [ ] The global `@RestControllerAdvice` answering with `ProblemDetail` (`docs/api-contract.md`).
+- [ ] The `ErrorCode` enum and the test that checks every code has its `title` and `detail` keys.
+- [ ] `PageResponse<T>` and the sort-field validation.
+
+## Final check
 
 - [ ] `./mvnw clean verify` is green on a fresh clone.
 - [ ] `docker compose up -d mariadb redis mailpit`, `docker compose run --rm flyway` and startup with

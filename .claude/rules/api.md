@@ -19,6 +19,10 @@ changing an endpoint, a DTO or an error.
 - No version prefix. Do not break the contract (remove or rename a field, change a type or a code) without asking.
 - Controllers only translate HTTP: validate input, call one service method, map the status code.
 - Input is validated with Bean Validation (`@Valid`) on request records.
+- Constraints on path and query parameters (`@Positive Long id`) are validated too; the global handler
+  maps that failure to 400 `VALIDATION_ERROR`, never to a 500.
+- Never accept the acting user's id in a request: take it from the authenticated user. A `USER` only
+  reaches their own resources.
 - Every endpoint carries OpenAPI annotations (`@Operation`, `@ApiResponse`, `@Tag`).
 
 ## Payloads
@@ -37,7 +41,7 @@ Declare the code explicitly on each endpoint and in its `@ApiResponse`.
 
 | Code | When | Body |
 |---|---|---|
-| 200 | `GET`; `PUT`/`PATCH` returning the updated resource; actions that return a result without creating a resource (login, token refresh, lifting a sanction) | Response DTO |
+| 200 | `GET`; `PUT` returning the updated resource (`PATCH` is not used); actions that return a result without creating a resource (login, token refresh, lifting a sanction) | Response DTO |
 | 201 | `POST` that creates a resource | Created DTO + `Location` header |
 | 202 | Accepted work that finishes in the background (RAG ingestion and re-indexing) | Process status |
 | 204 | `DELETE`, logout, requesting a verification or recovery code, actions with nothing to return | Empty |
@@ -56,7 +60,7 @@ One `@RestControllerAdvice` in `shared` answers with `ProblemDetail` (RFC 9457).
 | 400 | Invalid input, malformed parameters |
 | 401 | Missing, invalid, expired or denylisted token; wrong credentials |
 | 403 | Authenticated without permission; unverified email; locked account |
-| 404 | Resource does not exist, or belongs to another member |
+| 404 | Resource does not exist, or belongs to another user |
 | 409 | State conflict: duplicate, optimistic lock, copy already on loan |
 | 422 | Business rule violated: loan limit, active sanction, no renewals left |
 | 429 | Rate limit exceeded, with a `Retry-After` header |

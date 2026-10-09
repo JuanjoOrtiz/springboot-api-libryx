@@ -35,9 +35,13 @@ Nothing in this repository may be run against a real AWS account unless explicit
 | Database | RDS for MariaDB 11.8 | 11.8 is required for the assistant's `VECTOR` type |
 | Redis | ElastiCache | Cache, refresh tokens, denylist and rate limiting |
 | Secrets | Secrets Manager | Injected into the task as environment variables |
-| Mail | Amazon SES (SMTP interface) | Replaces Mailpit; same `spring.mail.*` properties |
+| Mail | Amazon SES (SMTP interface) | Replaces Mailpit; same `spring.mail.*` properties. A new account starts in the **sandbox** and only sends to verified addresses until production access is requested |
 | Logs | CloudWatch Logs | The application already writes JSON to standard output |
 | Outbound internet | NAT Gateway | For ECR, SES and the Anthropic API |
+
+**Cost:** the NAT Gateway is the most expensive piece (around 30 € a month even with no traffic).
+VPC endpoints for ECR, Secrets Manager and CloudWatch Logs reduce the traffic through it; the NAT is
+still needed for the Anthropic API.
 
 The Angular frontend is deployed from its own repository (S3 + CloudFront) and is outside this document.
 
@@ -56,6 +60,8 @@ the infrastructure.
   only then is the service updated. The API starts with `ddl-auto=validate` and does not migrate.
 - **Health check:** the ALB calls `/actuator/health/readiness` on the management port (8081), which is
   never routed to the internet. It depends on MariaDB and Redis, not on mail.
+  - The target group sends traffic to 8080 and overrides the health check port to 8081.
+  - The API security group lets the ALB reach 8081; no listener rule ever forwards to 8081.
 - **Same site for API and frontend.** The refresh token travels in a `SameSite=Strict` cookie: the API
   and the frontend must hang from the same registrable domain (`api.<domain>` and `app.<domain>`).
 - **`prod` profile** set in the task definition, with `LIBRYX_SECURITY_CORS_ALLOWED_ORIGINS` pointing
@@ -63,6 +69,8 @@ the infrastructure.
 - **Assistant:** in `prod` the chat uses Claude through its API (`spring.ai.model.chat=anthropic`);
   Ollama is for `local` only and is not deployed. Embeddings are computed by an ONNX model inside the
   task itself: its files ship **inside the image** and the task memory is sized with it in mind.
+- **Task size:** 1 vCPU and 2 GB by default (variables `task_cpu`, `task_memory`). With
+  `-XX:MaxRAMPercentage=75` the JVM gets about 1.5 GB, enough for the embedding model.
 - **Time zone:** container and database in UTC. The business time zone comes from `libryx.time-zone`.
 - **Encryption in transit** to RDS and ElastiCache, and at rest in both.
 - **No public access to data:** RDS and ElastiCache accept connections only from the API's security group.
@@ -128,7 +136,8 @@ Conventions:
 6. If it does not, the service rolls back to the previous revision (deployment circuit breaker with rollback enabled).
 
 During step 5 the old task and the new one coexist for a moment. That is why scheduled jobs must be
-idempotent even though the service has a single task.
+idempotent even though the service has a single task, and the outbox job claims its rows with
+`SELECT … FOR UPDATE SKIP LOCKED`, so the two tasks never send the same email.
 
 Migrations must be **backward compatible** with the previous API version: during step 5 the new
 schema and the old code coexist. An incompatible change is split across two deployments.
